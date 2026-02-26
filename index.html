@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema Administrativo de Asistencia</title>
+
+<style>
+body{
+    margin:0;
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg,#1e3a8a,#2563eb);
+}
+
+header{
+    background:#0f172a;
+    color:white;
+    padding:15px;
+    text-align:center;
+    font-size:22px;
+    letter-spacing:1px;
+}
+
+.container{
+    max-width:1100px;
+    margin:30px auto;
+    background:white;
+    padding:25px;
+    border-radius:15px;
+    box-shadow:0 15px 40px rgba(0,0,0,0.2);
+}
+
+h2{
+    margin-top:30px;
+    color:#1e293b;
+}
+
+input, select{
+    padding:8px;
+    margin:5px;
+    border-radius:6px;
+    border:1px solid #ccc;
+}
+
+button{
+    padding:8px 12px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    font-weight:bold;
+    transition:0.3s;
+}
+
+.btn-primary{ background:#2563eb; color:white; }
+.btn-success{ background:#16a34a; color:white; }
+.btn-danger{ background:#dc2626; color:white; }
+.btn-warning{ background:#f59e0b; color:white; }
+
+button:hover{
+    opacity:0.85;
+}
+
+table{
+    width:100%;
+    border-collapse: collapse;
+    margin-top:15px;
+}
+
+th, td{
+    padding:10px;
+    text-align:center;
+    border-bottom:1px solid #ddd;
+}
+
+th{
+    background:#2563eb;
+    color:white;
+}
+
+.resumen{
+    margin-top:20px;
+    padding:12px;
+    background:#f1f5f9;
+    border-radius:8px;
+    font-weight:bold;
+}
+.status-presente{ color:#16a34a; }
+.status-ausente{ color:#dc2626; }
+</style>
+</head>
+
+<body>
+
+<header>
+Sistema Administrativo de Inscripción y Asistencia
+</header>
+
+<div class="container">
+
+<h2>Registrar Persona</h2>
+<input type="text" id="nombre" placeholder="Nombre completo">
+<input type="text" id="dui" placeholder="Identificación">
+<input type="text" id="telefono" placeholder="Teléfono">
+<select id="sexo">
+<option value="">Sexo</option>
+<option>Masculino</option>
+<option>Femenino</option>
+</select>
+<button class="btn-primary" onclick="agregarPersona()">Guardar</button>
+
+<h2>Lista de Personas</h2>
+
+<label><strong>Fecha de asistencia:</strong></label>
+<input type="date" id="fechaAsistencia">
+
+<table>
+<thead>
+<tr>
+<th>Nombre</th>
+<th>ID</th>
+<th>Teléfono</th>
+<th>Sexo</th>
+<th>Asistencia</th>
+<th>Eliminar</th>
+</tr>
+</thead>
+<tbody id="tabla"></tbody>
+</table>
+
+<div class="resumen" id="resumen"></div>
+
+</div>
+
+<script>
+let personas = JSON.parse(localStorage.getItem("personas")) || [];
+let asistencias = JSON.parse(localStorage.getItem("asistencias")) || {};
+
+function guardarDatos(){
+    localStorage.setItem("personas", JSON.stringify(personas));
+    localStorage.setItem("asistencias", JSON.stringify(asistencias));
+}
+
+function agregarPersona(){
+    if(nombre.value === "" || dui.value === ""){
+        alert("Nombre e identificación son obligatorios");
+        return;
+    }
+
+    personas.push({
+        id: Date.now(),
+        nombre: nombre.value,
+        dui: dui.value,
+        telefono: telefono.value,
+        sexo: sexo.value
+    });
+
+    guardarDatos();
+    limpiar();
+    mostrar();
+}
+
+function mostrar(){
+    tabla.innerHTML="";
+    let fecha = fechaAsistencia.value;
+    let presentes = 0;
+
+    personas.forEach(p=>{
+        let presente = false;
+
+        if(fecha && asistencias[fecha]){
+            presente = asistencias[fecha].includes(p.id);
+        }
+
+        if(presente) presentes++;
+
+        tabla.innerHTML += `
+        <tr>
+            <td>${p.nombre}</td>
+            <td>${p.dui}</td>
+            <td>${p.telefono}</td>
+            <td>${p.sexo}</td>
+            <td>
+                <button class="${presente ? 'btn-success' : 'btn-warning'}"
+                onclick="marcarAsistencia(${p.id})">
+                ${presente ? 'Presente' : 'Marcar'}
+                </button>
+            </td>
+            <td>
+                <button class="btn-danger" onclick="eliminar(${p.id})">🗑</button>
+            </td>
+        </tr>
+        `;
+    });
+
+    let total = personas.length;
+    let ausentes = total - presentes;
+
+    resumen.innerHTML = `
+    Total: ${total} |
+    Presentes: <span class="status-presente">${presentes}</span> |
+    Ausentes: <span class="status-ausente">${ausentes}</span>
+    `;
+}
+
+function marcarAsistencia(id){
+    let fecha = fechaAsistencia.value;
+
+    if(!fecha){
+        alert("Selecciona una fecha primero");
+        return;
+    }
+
+    if(!asistencias[fecha]){
+        asistencias[fecha] = [];
+    }
+
+    let index = asistencias[fecha].indexOf(id);
+
+    if(index === -1){
+        asistencias[fecha].push(id);
+    } else {
+        asistencias[fecha].splice(index,1);
+    }
+
+    guardarDatos();
+    mostrar();
+}
+
+function eliminar(id){
+    if(confirm("¿Eliminar persona?")){
+        personas = personas.filter(p=>p.id !== id);
+
+        for(let fecha in asistencias){
+            asistencias[fecha] = asistencias[fecha].filter(pid=>pid !== id);
+        }
+
+        guardarDatos();
+        mostrar();
+    }
+}
+
+function limpiar(){
+    nombre.value="";
+    dui.value="";
+    telefono.value="";
+    sexo.value="";
+}
+
+fechaAsistencia.addEventListener("change", mostrar);
+
+mostrar();
+</script>
+
+</body>
+</html>
